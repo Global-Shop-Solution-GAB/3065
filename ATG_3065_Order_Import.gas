@@ -1,0 +1,833 @@
+Program.Sub.ScreenSU.Start
+gui.FMain..create
+gui.FMain..caption("Andersen EDI")
+gui.FMain..size(2730,1905)
+gui.FMain..position(0,0)
+gui.FMain..event(unload,fmain_unload)
+gui.FMain..alwaysontop(False)
+gui.FMain..fontname("Arial")
+gui.FMain..fontsize(8)
+gui.FMain..forecolor(0)
+gui.FMain..fontstyle(,,,,)
+gui.FMain..BackColor(-2147483633)
+gui.FMain..controlbox(True)
+gui.FMain..maxbutton(False)
+gui.FMain..minbutton(False)
+gui.FMain..mousepointer(0)
+gui.FMain..moveable(True)
+gui.FMain..sizeable(False)
+gui.FMain..ShowInTaskBar(True)
+gui.FMain..titlebar(True)
+gui.FMain.lbl1.create(label)
+gui.FMain.lbl1.caption("Loading...")
+gui.FMain.lbl1.backstyle(0)
+gui.FMain.lbl1.visible(True)
+gui.FMain.lbl1.size(2445,630)
+gui.FMain.lbl1.zorder(1)
+gui.FMain.lbl1.position(200,200)
+gui.FMain.lbl1.enabled(True)
+gui.FMain.lbl1.alignment(0)
+gui.FMain.lbl1.fontname("Arial")
+gui.FMain.lbl1.fontsize(24)
+gui.FMain.lbl1.BackColor(-2147483633)
+gui.FMain.lblStatus.create(label)
+gui.FMain.lblStatus.caption("Uploading Andersen File.")
+gui.FMain.lblStatus.backstyle(0)
+gui.FMain.lblStatus.visible(True)
+gui.FMain.lblStatus.size(2265,255)
+gui.FMain.lblStatus.zorder(1)
+gui.FMain.lblStatus.position(300,900)
+gui.FMain.lblStatus.enabled(True)
+gui.FMain.lblStatus.alignment(0)
+gui.FMain.lblStatus.fontname("Arial")
+gui.FMain.lblStatus.fontsize(8)
+gui.FMain.lblStatus.BackColor(-2147483633)
+
+
+Program.Sub.ScreenSU.End
+
+Program.Sub.Preflight.Start
+
+
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+'Lexington Andersen Window Order Import
+'11560
+'Runs off Script 1 button on the Order Header 11910
+'Script 2  11920
+
+V.Local.simport.Declare(String)
+V.Local.srow.Declare(String)
+V.Local.FileLoc.Declare(String)
+V.Local.ix.Declare(Long)
+V.Local.iy.Declare(Long)
+V.Local.itemp.Declare(Long)
+V.Local.importno.Declare(Long)
+
+F.ODBC.Connection!conx.OpenConnection(V.Ambient.PDSN,V.Ambient.PUser,V.Ambient.PPass)
+
+F.Intrinsic.Control.If(V.Caller.Hook,=,"11560")
+'	V.Passed.000201.Set("EDI Import")
+	V.Passed.000202.Set("EDI WO")
+	F.Intrinsic.Control.end
+F.Intrinsic.Control.EndIf
+
+
+F.Intrinsic.Control.If(V.Caller.Hook,=,"11920")
+	F.Intrinsic.Control.CallSub(Wo_upload)
+	F.Intrinsic.Control.end
+F.Intrinsic.Control.EndIf
+
+
+Function.Intrinsic.UI.ShowOpenFileDialog("Andersen Import File","*.*","C:\",Variable.local.FileLoc)
+F.Intrinsic.Control.If(V.Local.FileLoc,=,"***CANCEL***")
+	F.Intrinsic.Control.End
+F.Intrinsic.Control.EndIf
+
+Gui.FMain..show
+F.Intrinsic.File.File2String(V.Local.FileLoc,V.Local.sImport)
+F.Intrinsic.String.Split(V.Local.simport,V.Ambient.NewLine,V.Local.simport)
+
+F.ODBC.Connection!conx.OpenRecordsetRO("rstMAX","Select MAX(IMPORT_NO) AS IMPORT_NO from ATG_3065_EDI_ANDERSEN")
+
+F.Intrinsic.Control.If(V.ODBC.conx!rstMAX.EOF,=,False)
+	F.Intrinsic.Control.If(V.ODBC.conx!rstMAX.FieldValTrim!IMPORT_NO,<>,"")
+			F.Intrinsic.Math.Add(V.ODBC.conx!rstMAX.FieldValTrim!IMPORT_NO,1,V.Local.importno)
+	F.Intrinsic.Control.Else
+		V.Local.importno.Set(1)
+	F.Intrinsic.Control.EndIf
+F.Intrinsic.Control.Else
+			V.Local.importno.Set(1)
+F.Intrinsic.Control.EndIf
+F.ODBC.conx!rstMAX.Close
+F.ODBC.Connection!conx.OpenRecordsetRW("rstEDI","SELECT * FROM ATG_3065_EDI_ANDERSEN")
+
+F.Intrinsic.Control.For(V.Local.ix,V.Local.simport.LBound,V.Local.simport.UBound,1)
+ 	F.Intrinsic.String.Split(V.Local.simport(v.Local.ix),"|",V.Local.srow)
+	F.Intrinsic.Control.If(V.Local.srow(0),<>,"")
+		F.ODBC.conx!rstEDI.AddNew
+		F.ODBC.conx!rstEDI.Set!IMPORT_NO(V.Local.importno)
+		F.Intrinsic.Control.For(V.Local.iy,V.Local.srow.LBound,V.Local.srow.UBound,1)
+			F.Intrinsic.Math.Add(V.Local.iy,1,V.Local.itemp)
+			F.ODBC.conx!rstEDI.Set!FIELD[V.LOCAL.itemp](V.LOCAL.SROW(V.local.iY))
+		F.Intrinsic.Control.Next(V.Local.iy)
+		F.ODBC.conx!rstEDI.Update
+	F.Intrinsic.Control.EndIf
+F.Intrinsic.Control.Next(V.Local.ix)
+
+F.ODBC.conx!rstEDI.Close
+
+F.Intrinsic.Control.CallSub(Valpart,"IMPORTNO",V.Local.importno)
+
+F.Intrinsic.Control.End
+
+Program.Sub.Main.End
+
+program.sub.fmain_unload.start
+F.Intrinsic.Control.End
+
+program.sub.fmain_unload.end
+
+Program.Sub.valpart.Start
+V.Local.sSQL.Declare(String)
+V.Local.stemp.Declare(String)
+V.Local.sfield2.Declare(String)
+V.Local.sfield3.Declare(String)
+V.Local.ldprogram.Declare(String)
+V.Local.OrderUpload.Declare(String)
+V.Local.sCustomer.Declare(String)
+V.Local.custid.Declare(String)
+V.Local.day.Declare(String)
+V.Local.month.Declare(String)
+V.Local.year.Declare(String)
+V.Local.temp.Declare(String)
+V.Local.tdate.Declare(String)
+V.Local.orderid.Declare(String)
+V.Local.sError.Declare(String)
+V.Local.sDec.Declare(String)
+V.Local.negative.Declare(String)
+V.Local.ftemp.Declare(Float)
+V.Local.sError.Set("")
+V.Local.line1.Declare(String)
+V.Local.line2.Declare(String)
+V.Local.filedir.Declare(String)
+V.Local.filename.Declare(String)
+
+V.Local.sCol.Declare(String)
+V.Local.sWidth.Declare(String)
+V.Local.sret.Declare(String)
+V.Local.squery.Declare(String)
+
+
+F.Intrinsic.String.Split("NAME*!*CODE*!*STATE","*!*",V.Local.sCol)
+F.Intrinsic.String.Split("4000*!*1000*!*1000","*!*",V.Local.swidth)
+F.Intrinsic.String.Concat("SELECT 	NAME_CUSTOMER,CUSTOMER , STATE FROM V_CUSTOMER_MASTER ORDER BY NAME_CUSTOMER","",V.Local.squery)
+F.intrinsic.UI.Browser("SELECT CUSTOMER","conx",V.Local.squery,V.Local.sCol,V.Local.sWidth,V.Local.sret)
+F.Intrinsic.Control.If(V.Local.sret,<>,"***CANCEL***")
+	F.Intrinsic.string.Split(V.Local.sret,"*!*",V.Local.sret)
+	V.Local.sCustomer.Set(V.Local.sret(1))
+F.Intrinsic.Control.Else
+	F.Intrinsic.Control.End
+F.Intrinsic.Control.EndIf
+
+
+'Find Max Order
+F.ODBC.Connection!Conx.OpenRecordsetRO("r","SELECT MAX(ORDER_NO) AS MAXORDER from ORDER_HEADER")
+V.Local.orderid.Set(V.Odbc.Conx!r.FieldVal!MAXORDER)
+F.Intrinsic.Math.Add(V.Local.orderid,1,V.Local.orderid)
+F.ODBC.Conx!r.Close
+'V.Local.orderid.Set(10000000)
+
+F.Intrinsic.String.Concat("SELECT * FROM ATG_3065_EDI_ANDERSEN WHERE IMPORT_NO='",V.Args.IMPORTNO,"' AND FIELD1='LINEITEM'",V.Local.sSQL)
+F.ODBC.Connection!conx.OpenRecordsetRO("rstEDI",V.Local.sSQL)
+F.Intrinsic.String.Concat("SELECT * FROM ATG_3065_EDI_ANDERSEN WHERE IMPORT_NO='",V.Args.IMPORTNO,"' AND FIELD1='HEADER'",V.Local.sSQL)
+F.ODBC.Connection!conx.OpenRecordsetRO("rstEDIH",V.Local.sSQL)
+
+F.Intrinsic.Control.DoUntil(V.ODBC.conx!rstEDI.EOF,=,True)
+	'MATCH EDI LINE ITEM TO CUSTOM XREF TABLE
+	F.Intrinsic.String.RPad(V.ODBC.conx!rstEDI.FieldValTrim!FIELD12," ",4,V.Local.stemp)
+	F.Intrinsic.String.Mid(V.Local.stemp,1,2,V.Local.sfield2)
+	F.Intrinsic.String.Mid(V.Local.stemp,3,2,V.Local.sfield3)
+
+	F.Intrinsic.String.Concat("SELECT * FROM ATG_3065_PART_XREF WHERE FIELD1='",V.ODBC.conx!rstEDI.FieldValTrim!FIELD82,"' ",V.Local.sSQL)
+
+	F.ODBC.Connection!conx.OpenRecordsetRO("rstXREF",V.Local.sSQL)
+	F.Intrinsic.Control.If(V.ODBC.conx!rstXREF.EOF,=,False)
+		'Build Order Upload String Here
+		F.Intrinsic.Control.If(V.Local.ldprogram,<>,"")
+			F.Intrinsic.String.Concat(V.Local.ldprogram,V.Ambient.NewLine,V.Local.ldprogram)
+		F.Intrinsic.Control.EndIf
+
+		'Order Type
+		V.Local.OrderUpload.Set("O")
+		'Customer ID
+		F.Intrinsic.String.RPad(V.Local.sCustomer," ",7,V.Local.custID)
+		F.Intrinsic.String.Concat(V.Local.OrderUpload,V.Local.custID,V.Local.OrderUpload)
+		'Order ID
+		F.Intrinsic.String.LPad(V.Local.orderid,"0",7,V.Local.temp)
+		V.Local.orderid.Set(V.Local.temp)
+		F.Intrinsic.String.Concat(V.Local.OrderUpload,V.Local.temp,V.Local.OrderUpload)
+		'Freight
+		F.Intrinsic.String.RPad(" "," ",12,V.Local.temp)
+		F.Intrinsic.String.Concat(V.Local.OrderUpload,V.Local.temp,V.Local.OrderUpload)
+		'Due Date
+		F.Intrinsic.Date.Day(V.ODBC.conx!rstEDIH.FieldValTrim!FIELD6,V.Local.day)
+		F.Intrinsic.String.LPad(V.Local.day,"0",2,V.Local.day)
+		F.Intrinsic.Date.Month(V.ODBC.conx!rstEDIH.FieldValTrim!FIELD6,V.Local.month)
+		F.Intrinsic.String.LPad(V.Local.month,"0",2,V.Local.month)
+		F.Intrinsic.Date.Year(V.ODBC.conx!rstEDIH.FieldValTrim!FIELD6,V.Local.year)
+		F.Intrinsic.String.Concat(V.Local.year,V.Local.month,V.Local.day,V.Local.tdate)
+
+		F.Intrinsic.String.RPad(V.Local.tdate," ",8,V.Local.temp)
+		F.Intrinsic.String.Concat(V.Local.OrderUpload,V.Local.temp,V.Local.OrderUpload)
+		'Order Header Date
+		F.Intrinsic.Date.Day(V.Ambient.Now,V.Local.day)
+		F.Intrinsic.String.LPad(V.Local.day,"0",2,V.Local.day)
+		F.Intrinsic.Date.Month(V.Ambient.Now,V.Local.month)
+		F.Intrinsic.String.LPad(V.Local.month,"0",2,V.Local.month)
+		F.Intrinsic.Date.Year(V.Ambient.now,V.Local.year)
+		F.Intrinsic.String.Concat(V.Local.year,V.Local.month,V.Local.day,V.Local.tdate)
+		F.Intrinsic.String.RPad(V.Local.tdate," ",8,V.Local.temp)
+		F.Intrinsic.String.Concat(V.Local.OrderUpload,V.Local.temp,V.Local.OrderUpload)
+		'User Field Block char 30 x5 Header
+		F.Intrinsic.String.LPad(V.Args.IMPORTNO," ",60,V.Local.temp)
+		F.Intrinsic.String.RPad(V.Local.temp," ",150,V.Local.temp)
+		F.Intrinsic.String.Concat(V.Local.OrderUpload,V.Local.temp,V.Local.OrderUpload)
+		'User ID
+		F.Intrinsic.String.RPad("SUPERVSR"," ",8,V.Local.temp)
+		F.Intrinsic.String.Concat(V.Local.OrderUpload,V.Local.temp,V.Local.OrderUpload)
+		'PO
+		F.Intrinsic.String.RPad(V.ODBC.conx!rstEDIH.FieldValTrim!FIELD3," ",32,V.Local.temp)
+		F.Intrinsic.String.Concat(V.Local.OrderUpload,V.Local.temp,V.Local.OrderUpload)
+		'Ship Via
+		F.Intrinsic.String.RPad(""," ",26,V.Local.temp)
+		F.Intrinsic.String.Concat(V.Local.OrderUpload,V.Local.temp,V.Local.OrderUpload)
+		'Ship Name
+		F.Intrinsic.String.RPad(" "," ",30,V.Local.temp)
+		F.Intrinsic.String.Concat(V.Local.OrderUpload,V.Local.temp,V.Local.OrderUpload)
+		'Address 1
+		F.Intrinsic.String.RPad(""," ",30,V.Local.temp)
+		F.Intrinsic.String.Concat(V.Local.OrderUpload,V.Local.temp,V.Local.OrderUpload)
+		'Address 2
+		F.Intrinsic.String.RPad(""," ",30,V.Local.temp)
+		F.Intrinsic.String.Concat(V.Local.OrderUpload,V.Local.temp,V.Local.OrderUpload)
+		'Address 3
+		F.Intrinsic.String.RPad(""," ",30,V.Local.temp)
+		F.Intrinsic.String.Concat(V.Local.OrderUpload,V.Local.temp,V.Local.OrderUpload)
+		'Address 4 (CIty zip etc)
+		F.Intrinsic.String.Concat("","",V.Local.temp)
+		F.Intrinsic.String.RPad(V.Local.temp," ",43,V.Local.temp)
+		F.Intrinsic.String.Concat(V.Local.OrderUpload,V.Local.temp,V.Local.OrderUpload)
+		'Att. \ Buyer
+		F.Intrinsic.String.RPad(""," ",30,V.Local.temp)
+		F.Intrinsic.String.Concat(V.Local.OrderUpload,V.Local.temp,V.Local.OrderUpload)
+		'Filler
+		F.Intrinsic.String.RPad(""," ",11,V.Local.temp)
+		F.Intrinsic.String.Concat(V.Local.OrderUpload,V.Local.temp,V.Local.OrderUpload)
+		'Order Type & filler
+		F.Intrinsic.String.RPad(" "," ",242,V.Local.temp)
+		F.Intrinsic.String.Concat(V.Local.OrderUpload,V.Local.temp,V.Local.OrderUpload)
+		'Qty  MUST NOT BE ZERO
+		F.Intrinsic.Control.If(V.ODBC.conx!rstEDI.FieldValTrim!FIELD7,<,1)
+			F.Intrinsic.String.Concat(V.local.serror,"Quantity not valid on EDI Line: ",V.ODBC.conx!rstEDI.FieldValTrim!FIELD11,".",V.Ambient.NewLine,V.Local.sError)
+		F.Intrinsic.Control.EndIf
+		F.Intrinsic.String.Replace(V.ODBC.conx!rstEDI.FieldValTrim!FIELD7,".","",V.Local.temp)
+		F.Intrinsic.String.LPad(V.Local.temp,"0",9,V.Local.temp)
+		F.Intrinsic.String.RPad(V.Local.temp,"0",13,V.Local.temp)
+		F.Intrinsic.String.RPad(V.Local.temp,"0",25,V.Local.temp)
+		F.Intrinsic.String.Concat(V.Local.OrderUpload,V.Local.temp,V.Local.OrderUpload)
+		'Part
+		F.Intrinsic.String.RPad(V.ODBC.conx!rstXREF.FieldValTrim!FIELD11," ",38,V.Local.temp)
+		F.Intrinsic.String.Concat(V.Local.OrderUpload,V.Local.temp,V.Local.OrderUpload)
+		'Loc
+		F.Intrinsic.String.RPad(" "," ",2,V.Local.temp)
+		F.Intrinsic.String.Concat(V.Local.OrderUpload,V.Local.temp,V.Local.OrderUpload)
+		'Price
+		F.Intrinsic.String.Concat("Select * from V_INVENTORY_MSTR where PART='",V.ODBC.conx!rstXREF.FieldValTrim!FIELD11,"'",V.Local.sSQL)
+		F.ODBC.Connection!conx.OpenRecordsetRO("rstINV",V.Local.sSQL)
+		V.Local.ftemp.Set(0)
+		F.Intrinsic.Control.If(V.ODBC.conx!rstXREF.FieldValTrim!FIELD13,=,"")
+			F.Intrinsic.String.Concat(V.local.serror,"Incremental variable (Field13) is null on part: ",V.ODBC.conx!rstXREF.FieldValTrim!FIELD11,".",V.Ambient.NewLine,V.Local.sError)
+		F.Intrinsic.Control.Else
+			F.Intrinsic.Control.If(V.ODBC.conx!rstXREF.FieldValFloat!FIELD13,=,0)
+				F.Intrinsic.String.Concat(V.local.serror,"Incremental variable is 0 on part: ",V.ODBC.conx!rstXREF.FieldValTrim!FIELD11,".",V.Ambient.NewLine,V.Local.sError)
+			F.Intrinsic.Control.Else
+				F.Intrinsic.Control.If(V.ODBC.conx!rstINV.EOF,=,True)
+					F.Intrinsic.String.Concat(V.local.serror,"Part: ",V.ODBC.conx!rstXREF.FieldValTrim!FIELD11," does not exisit.",V.Ambient.NewLine,V.Local.sError)
+				F.Intrinsic.Control.Else
+					F.Intrinsic.Math.Div(V.ODBC.conx!rstINV.FieldValTrim!AMT_PRICE,V.ODBC.conx!rstXREF.FieldValTrim!FIELD13,V.Local.ftemp)
+				F.Intrinsic.Control.EndIf
+			F.Intrinsic.Control.EndIf
+		F.Intrinsic.Control.endif
+
+
+		F.Intrinsic.Control.If(V.ODBC.conx!rstXREF.FieldValTrim!FIELD4,=,"")
+			F.Intrinsic.String.Concat(V.local.serror,"Length Field4 is null on part: ",V.ODBC.conx!rstXREF.FieldValTrim!FIELD11,".",V.Ambient.NewLine,V.Local.sError)
+		F.Intrinsic.Control.ElseIf(V.ODBC.conx!rstXREF.FieldValTrim!FIELD14,=,"")
+			F.Intrinsic.String.Concat(V.local.serror,"Pricing Field14 is null on part: ",V.ODBC.conx!rstXREF.FieldValTrim!FIELD11,".",V.Ambient.NewLine,V.Local.sError)
+		F.Intrinsic.Control.Else
+			F.Intrinsic.UI.Msgbox(V.ODBC.conx!rstXREF.FieldValTrim!FIELD4)
+			F.Intrinsic.Math.Mult(V.Local.ftemp,V.ODBC.conx!rstXREF.FieldValFloat!FIELD4,V.ODBC.conx!rstXREF.FieldValFloat!FIELD14,V.Local.ftemp)
+		F.Intrinsic.Control.endif
+		F.ODBC.conx!rstINV.Close
+
+		F.Intrinsic.String.Instr(V.Local.ftemp,"-",V.Local.negative)
+		F.Intrinsic.String.Replace(V.Local.ftemp,"-","",V.Local.temp)
+		F.Intrinsic.String.Format(V.Local.temp,"0.00",V.Local.temp)
+		F.Intrinsic.String.split(V.Local.temp,".",V.Local.sDec)
+
+		F.Intrinsic.String.LPad(V.Local.sDec(0),"0",10,V.Local.sDec(0))
+		F.Intrinsic.String.RPad(V.Local.sDec(1),"0",6,V.Local.sDec(1))
+		F.Intrinsic.String.Concat(V.Local.sDec(0),V.Local.sDec(1),V.Local.temp)
+		F.Intrinsic.String.RPad(V.Local.temp," ",32,V.Local.temp)
+		F.Intrinsic.String.Concat(V.Local.OrderUpload,V.Local.temp,V.Local.OrderUpload)
+		'Cost
+		F.Intrinsic.String.RPad(" "," ",16,V.Local.temp)
+		F.Intrinsic.String.Concat(V.Local.OrderUpload,V.Local.temp,V.Local.OrderUpload)
+
+		'Part Desc
+		F.Intrinsic.String.RPad(V.ODBC.conx!rstEDI.FieldValTrim!FIELD6," ",30,V.Local.temp)
+		F.Intrinsic.String.Concat(V.Local.OrderUpload,V.Local.temp,V.Local.OrderUpload)
+
+		'PL
+		F.Intrinsic.String.RPad("AN"," ",3,V.local.temp)
+		F.Intrinsic.String.Concat(V.Local.OrderUpload,V.Local.temp,V.Local.OrderUpload)
+		'Order Line Date
+		F.Intrinsic.Date.Day(V.Ambient.Now,V.Local.day)
+		F.Intrinsic.String.LPad(V.Local.day,"0",2,V.Local.day)
+		F.Intrinsic.Date.Month(V.Ambient.Now,V.Local.month)
+		F.Intrinsic.String.LPad(V.Local.month,"0",2,V.Local.month)
+		F.Intrinsic.Date.Year(V.Ambient.now,V.Local.year)
+		F.Intrinsic.String.Concat(V.Local.year,V.Local.month,V.Local.day,V.Local.tdate)
+		F.Intrinsic.String.RPad(V.Local.tdate," ",8,V.Local.temp)
+		F.Intrinsic.String.Concat(V.Local.OrderUpload,V.Local.temp,V.Local.OrderUpload)
+		'Order Prom Line Date
+		V.Local.tdate.Set("")
+		F.Intrinsic.Date.Day(V.ODBC.conx!rstEDI.FieldValTrim!FIELD4,V.Local.day)
+		F.Intrinsic.String.LPad(V.Local.day,"0",2,V.Local.day)
+		F.Intrinsic.Date.Month(V.ODBC.conx!rstEDI.FieldValTrim!FIELD4,V.Local.month)
+		F.Intrinsic.String.LPad(V.Local.month,"0",2,V.Local.month)
+		F.Intrinsic.Date.Year(V.ODBC.conx!rstEDI.FieldValTrim!FIELD4,V.Local.year)
+		F.Intrinsic.String.Concat(V.Local.year,V.Local.month,V.Local.day,V.Local.tdate)
+
+		F.Intrinsic.String.RPad(V.Local.tdate," ",8,V.Local.temp)
+		F.Intrinsic.String.Concat(V.Local.OrderUpload,V.Local.temp,V.Local.OrderUpload)
+		
+		'User field block Lines
+		F.Intrinsic.String.RPad(""," ",30,V.Local.temp)
+		F.Intrinsic.String.Concat(V.Local.OrderUpload,V.Local.temp,V.Local.OrderUpload)
+
+		F.Intrinsic.String.RPad(""," ",30,V.Local.temp)
+		F.Intrinsic.String.Concat(V.Local.OrderUpload,V.Local.temp,V.Local.OrderUpload)
+
+		F.Intrinsic.String.RPad(" "," ",90,V.Local.temp)
+		F.Intrinsic.String.Concat(V.Local.OrderUpload,V.Local.temp,V.Local.OrderUpload)
+		'ext amt
+		F.Intrinsic.String.RPad(" "," ",16,V.Local.temp)
+		F.Intrinsic.String.Concat(V.Local.OrderUpload,V.Local.temp,V.Local.OrderUpload)
+		'Must Deliver by Date
+		F.Intrinsic.String.RPad(" "," ",17,V.Local.temp)
+		F.Intrinsic.String.Concat(V.Local.OrderUpload,V.Local.temp,V.Local.OrderUpload)
+		'Order Line Text
+		F.Intrinsic.String.RPAD(V.ODBC.conx!rstEDI.FieldValTrim!FIELD2," ",30,V.Local.line1)
+		F.Intrinsic.String.RPAD(V.ODBC.conx!rstEDI.FieldValTrim!FIELD23," ",30,V.Local.line2)
+		F.Intrinsic.String.Concat(V.Local.line1,V.Local.line2,V.Local.temp)
+		F.Intrinsic.String.RPad(V.Local.temp," ",300,V.Local.temp)
+		F.Intrinsic.String.Concat(V.Local.OrderUpload,V.Local.temp,V.Local.OrderUpload)
+		'Tax & Line Type
+		F.Intrinsic.String.RPad(" "," ",2,V.Local.temp)
+		F.Intrinsic.String.Concat(V.Local.OrderUpload,V.Local.temp,V.Local.OrderUpload)
+		'Negative Flag for discount  & Filler
+		F.Intrinsic.String.RPad(V.Local.negative," ",165,V.Local.temp)
+		F.Intrinsic.String.Concat(V.Local.OrderUpload,V.Local.temp,V.Local.OrderUpload)
+		'International Shipment
+		F.Intrinsic.String.RPad(" "," ",1,V.Local.temp)
+		F.Intrinsic.String.Concat(V.Local.OrderUpload,V.Local.temp,V.Local.OrderUpload)
+		'Name Shipment
+		F.Intrinsic.String.RPad(""," ",40,V.Local.temp)
+		F.Intrinsic.String.Concat(V.Local.OrderUpload,V.Local.temp,V.Local.OrderUpload)
+		'Address 1 Shipment
+		F.Intrinsic.String.RPad(""," ",40,V.Local.temp)
+		F.Intrinsic.String.Concat(V.Local.OrderUpload,V.Local.temp,V.Local.OrderUpload)
+		'Address 2 Shipment
+		F.Intrinsic.String.RPad(""," ",40,V.Local.temp)
+		F.Intrinsic.String.Concat(V.Local.OrderUpload,V.Local.temp,V.Local.OrderUpload)
+		'Address 3 Shipment
+		F.Intrinsic.String.RPad(""," ",40,V.Local.temp)
+		F.Intrinsic.String.Concat(V.Local.OrderUpload,V.Local.temp,V.Local.OrderUpload)
+		'Address 4 Shipment
+		F.Intrinsic.String.RPad(""," ",40,V.Local.temp)
+		F.Intrinsic.String.Concat(V.Local.OrderUpload,V.Local.temp,V.Local.OrderUpload)
+		'Address 5 Shipment
+	'	F.Intrinsic.String.Concat(V.ODBC.conx!rstX.FieldValTrim!CITY,", ",V.ODBC.conx!rstX.FieldValTrim!STATE," ",V.ODBC.conx!rstX.FieldValTrim!ZIP,V.Local.temp)
+		F.Intrinsic.String.RPad(V.Local.temp," ",40,V.Local.temp)
+		F.Intrinsic.String.Concat(V.Local.OrderUpload,V.Local.temp,V.Local.OrderUpload)
+		'City State Zip Country
+		F.Intrinsic.String.RPad(" "," ",65,V.Local.temp)
+		F.Intrinsic.String.Concat(V.Local.OrderUpload,V.Local.temp,V.Local.OrderUpload)
+		'Attn Shipment
+		F.Intrinsic.String.RPad(" "," ",40,V.Local.temp)
+		F.Intrinsic.String.Concat(V.Local.OrderUpload,V.Local.temp,V.Local.OrderUpload)
+		'International Billing
+		F.Intrinsic.String.RPad(" "," ",1,V.Local.temp)
+		F.Intrinsic.String.Concat(V.Local.OrderUpload,V.Local.temp,V.Local.OrderUpload)
+		'Name Billing
+		F.Intrinsic.String.RPad(""," ",40,V.Local.temp)
+		F.Intrinsic.String.Concat(V.Local.OrderUpload,V.Local.temp,V.Local.OrderUpload)
+		'Address 1 Billing
+		F.Intrinsic.String.RPad(""," ",40,V.Local.temp)
+		F.Intrinsic.String.Concat(V.Local.OrderUpload,V.Local.temp,V.Local.OrderUpload)
+		'Address 2 Billing
+		F.Intrinsic.String.RPad(""," ",40,V.Local.temp)
+		F.Intrinsic.String.Concat(V.Local.OrderUpload,V.Local.temp,V.Local.OrderUpload)
+		'Address 3 Billing
+		F.Intrinsic.String.RPad(""," ",40,V.Local.temp)
+		F.Intrinsic.String.Concat(V.Local.OrderUpload,V.Local.temp,V.Local.OrderUpload)
+		'Address 4 Billing
+		F.Intrinsic.String.RPad(""," ",40,V.Local.temp)
+		F.Intrinsic.String.Concat(V.Local.OrderUpload,V.Local.temp,V.Local.OrderUpload)
+		'Address 5 Billing
+	'	F.Intrinsic.String.Concat(V.ODBC.conx!rstX.FieldValTrim!CITY,", ",V.ODBC.conx!rstX.FieldValTrim!STATE," ",V.ODBC.conx!rstX.FieldValTrim!ZIP,V.Local.temp)
+		F.Intrinsic.String.RPad(V.Local.temp," ",40,V.Local.temp)
+		F.Intrinsic.String.Concat(V.Local.OrderUpload,V.Local.temp,V.Local.OrderUpload)
+		
+		F.Intrinsic.String.Concat(V.Local.ldprogram,V.Local.OrderUpload,V.Local.ldprogram)
+
+
+	F.Intrinsic.Control.Else
+		F.Intrinsic.String.Concat(V.local.serror,"Part not found on EDI Line: ",V.ODBC.conx!rstEDI.FieldValTrim!FIELD11,".",V.Ambient.NewLine,V.Local.sError)
+	F.Intrinsic.Control.EndIf
+	F.ODBC.conx!rstXREF.Close
+	F.ODBC.conx!rstEDI.MoveNext
+F.Intrinsic.Control.Loop
+F.ODBC.conx!rstEDI.Close
+F.ODBC.conx!rstEDIH.Close
+
+F.Intrinsic.Control.If(V.Local.sError,<>,"")
+	F.Intrinsic.UI.Msgbox(V.Local.sError,"PARTS NOT FOUND.")
+	F.Intrinsic.Control.End
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.File.ChangeDirectory(V.Caller.SP2Dir)
+F.Intrinsic.String.Concat(V.Caller.FilesDir,"\","LD",V.Caller.Terminal,V.Caller.CompanyCode,V.Local.filedir)
+F.Intrinsic.File.String2File(V.Local.filedir,V.Local.ldprogram)
+
+
+F.Intrinsic.String.Concat("LD",V.Caller.Terminal,V.Caller.CompanyCode,V.Local.filename)
+F.Intrinsic.String.Concat(V.Ambient.DblQuote,V.Caller.CompanyCode,"SUPERVSR",V.Local.filename,V.Ambient.DblQuote,V.Local.ldprogram)
+F.Intrinsic.Task.LaunchGSSSync("ORDUPCM3"," -c",V.Local.ldprogram)
+
+F.Intrinsic.String.Concat("Order: ",V.Local.orderid," Uploaded.",V.Local.stemp)
+F.Intrinsic.UI.Msgbox(V.Local.stemp,"Order Uploaded.")
+'F.Intrinsic.String.Concat(V.Local.orderid,"!*!O!*!*!*ZDR*!*",V.Local.stemp)
+'F.Global.General.CallWrapperAsync(200000,V.Local.stemp)
+
+Program.Sub.valpart.End
+
+Program.Sub.wo_upload.Start
+V.Local.woupload.Declare(String)
+V.Local.temp.Declare(String)
+V.Local.filedir.Declare(String)
+V.Local.filename.Declare(String)
+V.Local.wo.Declare(Long)
+V.Local.delheader.Declare(String)
+V.Local.delheader.Set("@#")
+V.Local.price.Declare(Float)
+V.Local.sSQL.Declare(String)
+V.Local.pupload.Declare(String)
+V.Local.order.Declare(Long)
+V.Local.line.Declare(Long)
+V.Local.sWO.Declare(String)
+V.Local.ftemp.Declare(Float)
+V.Local.wolog.Declare(String)
+V.Local.lseq.Declare(Long)
+V.Local.lx.Declare(Long)
+V.Local.sDim.Declare(String)
+V.Local.ltemp.Declare(Long)
+
+'Query Order Lines
+F.Intrinsic.String.LPad(V.Passed.000003,"0",7,V.Local.temp)
+F.Intrinsic.String.Concat("Select * from V_ORDER_HEADER where ORDER_NO='",V.local.temp,"' ",V.Local.sSQL)
+F.ODBC.Connection!conx.OpenRecordsetRO("rstOrderHead",V.Local.sSQL)
+
+
+F.Intrinsic.String.Concat("Select * from V_ORDER_LINES where ORDER_NO='",V.local.temp,"' ORDER BY RECORD_NO",V.Local.sSQL)
+F.ODBC.Connection!conx.OpenRecordsetRO("rstOrder",V.Local.sSQL)
+
+F.Intrinsic.Control.If(V.ODBC.conx!rstOrder.EOF,=,True)
+	'F.Intrinsic.UI.Msgbox("Cannot find orders with cut charges! = 0","Error")
+	F.Intrinsic.Control.ExitSub
+F.Intrinsic.Control.endif
+
+F.ODBC.Connection!conx.OpenRecordsetRO("rst","SELECT MAX(JOB) AS JOB from JOB_HEADER where isnumeric(JOB)<>0")
+F.Intrinsic.Math.Add(V.ODBC.conx!rst.FieldValTrim!JOB,1,V.Local.wo)
+F.ODBC.conx!rst.Close
+
+'Make wo from order no
+'F.Intrinsic.String.Right(V.Local.temp,6,V.Local.wo)
+
+
+F.Intrinsic.Control.DoUntil(V.ODBC.conx!rstOrder.EOF,=,True)
+		V.Local.order.Set(V.ODBC.conx!rstOrder.FieldValTrim!ORDER_NO)
+		V.Local.line.Set(V.ODBC.conx!rstOrder.FieldValTrim!RECORD_NO)
+		F.Intrinsic.Math.Mult(V.Local.line,.1,V.Local.line)
+		F.Intrinsic.String.Concat("SELECT * FROM ATG_3065_EDI_ANDERSEN WHERE FIELD1='LINEITEM' and FIELD11='",V.Local.line,"' and IMPORT_NO='",V.ODBC.conx!rstOrderHead.FieldValTrim!USER_2,"'",V.Local.sSQL)
+		F.ODBC.Connection!conx.OpenRecordsetRO("rstEDI",V.Local.sSQL)
+		F.Intrinsic.Control.If(V.ODBC.conx!rstEDI.EOF,=,True)
+			F.Intrinsic.String.Concat("EDI Import for order ",V.Local.order," line ",V.Local.line," is missing! Work order will not be created for this line.",V.Local.temp)
+			F.Intrinsic.UI.Msgbox(V.Local.temp,"Error")
+		F.Intrinsic.Control.Else
+			'Lookup Router
+			'F.Intrinsic.String.Concat("Select * from V_ROUTER_HEADER where ROUTER='",V.ODBC.conx!rstOrder.FieldValTrim!PART,"' ",V.Local.sSQL)
+			'F.ODBC.Connection!conx.OpenRecordsetRO("rstRouterHead",V.Local.sSQL)
+			'Set header for wo upload
+			V.Local.woupload.Set("H")
+			'Job
+			F.Intrinsic.String.LPad(V.Local.wo,"0",6,V.Local.temp)
+			V.Local.sWO.Set(V.Local.temp)
+			F.Intrinsic.String.Concat(V.Local.woupload,V.Local.delheader,V.Local.temp,V.Local.woupload)
+			F.Intrinsic.Math.Add(V.Local.wo,1,V.Local.wo)
+			'Suffix
+			F.Intrinsic.String.LPad(""," ",3,V.Local.temp)
+			F.Intrinsic.String.Concat(V.Local.woupload,V.Local.delheader,V.Local.temp,V.Local.woupload)
+			'Part
+			F.Intrinsic.String.RPad(V.ODBC.conx!rstOrder.FieldValTrim!PART," ",20,V.Local.temp)
+			F.Intrinsic.String.Concat(V.Local.woupload,V.Local.delheader,V.Local.temp,V.Local.woupload)
+			'Part Description
+			F.Intrinsic.String.RPad(V.ODBC.conx!rstOrder.FieldValTrim!DESCRIPTION," ",30,V.Local.temp)
+			F.Intrinsic.String.Concat(V.Local.woupload,V.Local.delheader,V.Local.temp,V.Local.woupload)
+			'Customer PO
+			F.Intrinsic.String.RPad(V.Passed.000025," ",20,V.Local.temp)
+			F.Intrinsic.String.Concat(V.Local.woupload,V.Local.delheader,V.Local.temp,V.Local.woupload)
+			'Part 2
+			F.Intrinsic.String.RPad(V.ODBC.conx!rstOrder.FieldValTrim!PART," ",20,V.Local.temp)
+			F.Intrinsic.String.Concat(V.Local.woupload,V.Local.delheader,V.Local.temp,V.Local.woupload)
+			'Location 2
+			F.Intrinsic.String.RPad(""," ",2,V.Local.temp)
+			F.Intrinsic.String.Concat(V.Local.woupload,V.Local.delheader,V.Local.temp,V.Local.woupload)
+			'Part Description 2
+			F.Intrinsic.String.RPad(V.ODBC.conx!rstOrder.FieldValTrim!DESCRIPTION," ",30,V.Local.temp)
+			F.Intrinsic.String.Concat(V.Local.woupload,V.Local.delheader,V.Local.temp,V.Local.woupload)
+			'Customer Number
+			F.Intrinsic.String.RPad(V.Passed.000006," ",6,V.Local.temp)
+			F.Intrinsic.String.Concat(V.Local.woupload,V.Local.delheader,V.Local.temp,V.Local.woupload)
+			'Price
+			F.Intrinsic.String.Concat(V.Local.woupload,V.Local.delheader,V.ODBC.conx!rstOrder.FieldValTrim!PRICE,V.Local.woupload)
+			'Priority
+			F.Intrinsic.String.RPad("001"," ",3,V.Local.temp)
+			F.Intrinsic.String.Concat(V.Local.woupload,V.Local.delheader,V.Local.temp,V.Local.woupload)
+			'PL
+			F.Intrinsic.String.RPad(V.ODBC.conx!rstOrder.FieldValTrim!PRODUCT_LINE," ",2,V.Local.temp)
+			F.Intrinsic.String.Concat(V.Local.woupload,V.Local.delheader,V.Local.temp,V.Local.woupload)
+			'Project Number
+			F.Intrinsic.String.RPad(""," ",6,V.Local.temp)
+			F.Intrinsic.String.Concat(V.Local.woupload,V.Local.delheader,V.Local.temp,V.Local.woupload)
+			'User 1
+			F.Intrinsic.String.RPad(""," ",20,V.Local.temp)
+			F.Intrinsic.String.Concat(V.Local.woupload,V.Local.delheader,V.Local.temp,V.Local.woupload)
+			'Sales Code
+			F.Intrinsic.String.RPad(""," ",3,V.Local.temp)
+			F.Intrinsic.String.Concat(V.Local.woupload,V.Local.delheader,V.Local.temp,V.Local.woupload)
+			'Order Date
+			F.Intrinsic.String.Format(V.ODBC.conx!rstOrder.FieldValTrim!DATE_ORDER,"MMDDYY",V.Local.temp)
+			F.Intrinsic.String.Concat(V.Local.woupload,V.Local.delheader,V.Local.temp,V.Local.woupload)
+			'Due Date
+			F.Intrinsic.String.Format(V.ODBC.conx!rstOrder.FieldValTrim!DATE_ITEM_PROM,"MMDDYY",V.Local.temp)
+			F.Intrinsic.String.Concat(V.Local.woupload,V.Local.delheader,V.Local.temp,V.Local.woupload)
+			'Run Qty
+			F.Intrinsic.String.Concat(V.Local.woupload,V.Local.delheader,V.ODBC.conx!rstOrder.FieldValTrim!QTY_ORDERED,V.Local.woupload)
+			'Add Desc 1
+			F.Intrinsic.String.RPad(V.ODBC.conx!rstEDI.FieldValTrim!FIELD2," ",70,V.Local.temp)
+			F.Intrinsic.String.Concat(V.Local.woupload,V.Local.delheader,V.Local.temp,V.Local.woupload)
+			'Add Desc 2
+			F.Intrinsic.String.RPad(V.ODBC.conx!rstEDI.FieldValTrim!FIELD23," ",70,V.Local.temp)
+			F.Intrinsic.String.Concat(V.Local.woupload,V.Local.delheader,V.Local.temp,V.Local.woupload)
+			'Add Desc 3
+			F.Intrinsic.String.RPad(""," ",70,V.Local.temp)
+			F.Intrinsic.String.Concat(V.Local.woupload,V.Local.delheader,V.Local.temp,V.Local.woupload)
+			F.Intrinsic.String.RPad(""," ",1,V.Local.temp)
+			F.Intrinsic.String.Concat(V.Local.woupload,V.Local.delheader,V.Local.temp,V.Local.woupload)
+
+			'Set Order/Line
+			F.Intrinsic.String.Concat(V.Local.woupload,"@#",V.Local.order,V.Local.woupload)
+			F.Intrinsic.String.Concat(V.Local.woupload,"@#",V.Local.line,V.Local.woupload)
+
+
+
+			'Enter Sequence Loop here
+			F.Intrinsic.String.Concat("SELECT * FROM V_ROUTER_LINE WHERE ROUTER='",V.ODBC.conx!rstOrder.FieldValTrim!PART,"' ORDER BY LINE_ROUTER",V.Local.sSQL)
+			F.ODBC.Connection!conx.OpenRecordsetRO("rstROUTERLINE",V.Local.sSQL)
+			F.Intrinsic.Control.DoUntil(V.ODBC.conx!rstROUTERLINE.EOF,=,True)
+
+				'New Line
+				F.Intrinsic.String.Concat(V.Local.woupload,V.Ambient.NewLine,V.Local.woupload)
+				
+				'Add Sequences
+				F.Intrinsic.String.Concat(V.Local.woupload,"L",V.Local.woupload)
+				'Sequence
+				F.Intrinsic.String.RPad(V.ODBC.conx!rstROUTERLINE.FieldValTrim!LINE_ROUTER,"0",6,V.Local.temp)
+				F.Intrinsic.String.Concat(V.Local.woupload,"@#",V.Local.temp,V.Local.woupload)
+				
+				'Type L, M, O or C (L for labor, M for material, O for outside process, C for comments)
+				F.Intrinsic.String.Concat(V.Local.woupload,"@#",V.ODBC.conx!rstROUTERLINE.FieldValTrim!LMO,V.Local.woupload)
+
+				'Part (Only Fill on M steps)
+				F.Intrinsic.String.RPad(V.ODBC.conx!rstROUTERLINE.FieldValTrim!PART_WC_OUTSIDE," ",20,V.Local.temp)
+				F.Intrinsic.String.Concat(V.Local.woupload,"@#",V.Local.temp,V.Local.woupload)
+				'Workcenter (Only Fill on L steps)
+				F.Intrinsic.String.RPad(V.ODBC.conx!rstROUTERLINE.FieldValTrim!PART_WC_OUTSIDE," ",4,V.Local.temp)
+				F.Intrinsic.String.Concat(V.Local.woupload,"@#",V.Local.temp,V.Local.woupload)
+				'Part (Only Fill on O steps)
+				F.Intrinsic.String.RPad(V.ODBC.conx!rstROUTERLINE.FieldValTrim!PART_WC_OUTSIDE," ",20,V.Local.temp)
+				F.Intrinsic.String.Concat(V.Local.woupload,"@#",V.Local.temp,V.Local.woupload)
+				'Op code
+				F.Intrinsic.String.RPad(V.ODBC.conx!rstROUTERLINE.FieldValTrim!OPERATION," ",6,V.Local.temp)
+				F.Intrinsic.String.Concat(V.Local.woupload,"@#",V.Local.temp,V.Local.woupload)
+				'Description
+				F.Intrinsic.String.RPad(V.ODBC.conx!rstROUTERLINE.FieldValTrim!DESC_RT_LINE," ",30,V.Local.temp)
+				F.Intrinsic.String.Concat(V.Local.woupload,"@#",V.Local.temp,V.Local.woupload)
+				'Unit of Measure
+				F.Intrinsic.String.RPad(V.ODBC.conx!rstROUTERLINE.FieldValTrim!UM_INVENTORY," ",2,V.Local.temp)
+				F.Intrinsic.String.Concat(V.Local.woupload,"@#",V.Local.temp,V.Local.woupload)
+				'Setup
+				F.Intrinsic.String.Concat(V.Local.woupload,"@#",V.ODBC.conx!rstROUTERLINE.FieldValTrim!SET_UP,V.Local.woupload)
+
+				'Runtime/Qty to Make 1
+				F.Intrinsic.String.Concat(V.Local.woupload,"@#",V.ODBC.conx!rstROUTERLINE.FieldValTrim!RUN_TIME,V.Local.woupload)
+				'Rate
+				F.Intrinsic.String.Concat(V.Local.woupload,"@#",V.ODBC.conx!rstROUTERLINE.FieldValTrim!RATE,V.Local.woupload)
+
+				'Sort Value
+				F.Intrinsic.String.RPad(""," ",20,V.Local.temp)
+				F.Intrinsic.String.Concat(V.Local.woupload,"@#",V.Local.temp,V.Local.woupload)
+
+				F.ODBC.conx!rstROUTERLINE.MoveNext
+			F.Intrinsic.Control.Loop
+			F.ODBC.conx!rstROUTERLINE.Close
+			'Add Comments, Find max Sequence number
+			F.Intrinsic.String.Concat("SELECT MAX(LINE_ROUTER) AS SEQ FROM V_ROUTER_LINE WHERE ROUTER='",V.ODBC.conx!rstOrder.FieldValTrim!PART,"' ",V.Local.sSQL)
+			F.ODBC.Connection!conx.OpenRecordsetRO("rstROUTERLINE",V.Local.sSQL)
+			V.Local.lseq.Set(V.ODBC.conx!rstROUTERLINE.FieldValTrim!SEQ)
+			F.ODBC.conx!rstROUTERLINE.Close
+			'Add Comments for fields 40-53 and label each Dim A...B...C..etc
+			V.Local.sDim.Set("A")
+			F.Intrinsic.Control.For(V.Local.lx,40,53,1)
+				F.Intrinsic.Control.If(V.ODBC.conx!rstEDI.FieldValTrim!FIELD[v.local.lx],<>,"")
+					F.Intrinsic.Math.Add(V.Local.lseq,1,V.Local.lseq)
+					'New Line
+					F.Intrinsic.String.Concat(V.Local.woupload,V.Ambient.NewLine,V.Local.woupload)
+					
+					'Add Sequences
+					F.Intrinsic.String.Concat(V.Local.woupload,"L",V.Local.woupload)
+					'Sequence
+					F.Intrinsic.String.LPad(V.Local.lseq,"0",6,V.Local.temp)
+					F.Intrinsic.String.Concat(V.Local.woupload,"@#",V.Local.temp,V.Local.woupload)
+					
+					'Type L, M, O or C (L for labor, M for material, O for outside process, C for comments)
+					F.Intrinsic.String.Concat(V.Local.woupload,"@#","C",V.Local.woupload)
+
+					'Part (Only Fill on M steps)
+					F.Intrinsic.String.RPad(""," ",20,V.Local.temp)
+					F.Intrinsic.String.Concat(V.Local.woupload,"@#",V.Local.temp,V.Local.woupload)
+					'Workcenter (Only Fill on L steps)
+					F.Intrinsic.String.RPad(""," ",4,V.Local.temp)
+					F.Intrinsic.String.Concat(V.Local.woupload,"@#",V.Local.temp,V.Local.woupload)
+					'Part (Only Fill on O steps)
+					F.Intrinsic.String.RPad(""," ",20,V.Local.temp)
+					F.Intrinsic.String.Concat(V.Local.woupload,"@#",V.Local.temp,V.Local.woupload)
+					'Op code
+					F.Intrinsic.String.RPad(""," ",6,V.Local.temp)
+					F.Intrinsic.String.Concat(V.Local.woupload,"@#",V.Local.temp,V.Local.woupload)
+					'Description
+					F.Intrinsic.String.Concat("Dim '",V.Local.sDim,"': ",V.ODBC.conx!rstEDI.FieldValTrim!FIELD[v.local.lx],V.Local.temp)
+					F.Intrinsic.String.RPad(V.Local.temp," ",30,V.Local.temp)
+					F.Intrinsic.String.Concat(V.Local.woupload,"@#",V.Local.temp,V.Local.woupload)
+					F.Intrinsic.String.Asc(V.Local.sDim,V.Local.ltemp)
+					F.Intrinsic.Math.Add(V.Local.ltemp,1,V.Local.ltemp)
+					F.Intrinsic.String.ConcatChr("",V.Local.ltemp,V.Local.sDim)
+					'Unit of Measure
+					F.Intrinsic.String.RPad(""," ",2,V.Local.temp)
+					F.Intrinsic.String.Concat(V.Local.woupload,"@#",V.Local.temp,V.Local.woupload)
+					'Setup
+					F.Intrinsic.String.Concat(V.Local.woupload,"@#","",V.Local.woupload)
+
+					'Runtime/Qty to Make 1
+					F.Intrinsic.String.Concat(V.Local.woupload,"@#","",V.Local.woupload)
+					'Rate
+					F.Intrinsic.String.Concat(V.Local.woupload,"@#","",V.Local.woupload)
+
+					'Sort Value
+					F.Intrinsic.String.RPad(""," ",20,V.Local.temp)
+					F.Intrinsic.String.Concat(V.Local.woupload,"@#",V.Local.temp,V.Local.woupload)
+				F.Intrinsic.Control.EndIf
+			F.Intrinsic.Control.Next(V.Local.lx)
+
+			'Add comments for field 12 Color
+			F.Intrinsic.Math.Add(V.Local.lseq,1,V.Local.lseq)
+			'New Line
+			F.Intrinsic.String.Concat(V.Local.woupload,V.Ambient.NewLine,V.Local.woupload)
+			
+			'Add Sequences
+			F.Intrinsic.String.Concat(V.Local.woupload,"L",V.Local.woupload)
+			'Sequence
+			F.Intrinsic.String.LPad(V.Local.lseq,"0",6,V.Local.temp)
+			F.Intrinsic.String.Concat(V.Local.woupload,"@#",V.Local.temp,V.Local.woupload)
+			
+			'Type L, M, O or C (L for labor, M for material, O for outside process, C for comments)
+			F.Intrinsic.String.Concat(V.Local.woupload,"@#","C",V.Local.woupload)
+
+			'Part (Only Fill on M steps)
+			F.Intrinsic.String.RPad(""," ",20,V.Local.temp)
+			F.Intrinsic.String.Concat(V.Local.woupload,"@#",V.Local.temp,V.Local.woupload)
+			'Workcenter (Only Fill on L steps)
+			F.Intrinsic.String.RPad(""," ",4,V.Local.temp)
+			F.Intrinsic.String.Concat(V.Local.woupload,"@#",V.Local.temp,V.Local.woupload)
+			'Part (Only Fill on O steps)
+			F.Intrinsic.String.RPad(""," ",20,V.Local.temp)
+			F.Intrinsic.String.Concat(V.Local.woupload,"@#",V.Local.temp,V.Local.woupload)
+			'Op code
+			F.Intrinsic.String.RPad(""," ",6,V.Local.temp)
+			F.Intrinsic.String.Concat(V.Local.woupload,"@#",V.Local.temp,V.Local.woupload)
+			'Description
+			F.Intrinsic.String.Concat("Color: ",V.ODBC.conx!rstEDI.FieldValTrim!FIELD12,V.Local.temp)
+			F.Intrinsic.String.RPad(V.Local.temp," ",30,V.Local.temp)
+			F.Intrinsic.String.Concat(V.Local.woupload,"@#",V.Local.temp,V.Local.woupload)
+			F.Intrinsic.String.Asc(V.Local.sDim,V.Local.ltemp)
+			F.Intrinsic.Math.Add(V.Local.ltemp,1,V.Local.ltemp)
+			F.Intrinsic.String.ConcatChr("",V.Local.ltemp,V.Local.sDim)
+			'Unit of Measure
+			F.Intrinsic.String.RPad(""," ",2,V.Local.temp)
+			F.Intrinsic.String.Concat(V.Local.woupload,"@#",V.Local.temp,V.Local.woupload)
+			'Setup
+			F.Intrinsic.String.Concat(V.Local.woupload,"@#","",V.Local.woupload)
+
+			'Runtime/Qty to Make 1
+			F.Intrinsic.String.Concat(V.Local.woupload,"@#","",V.Local.woupload)
+			'Rate
+			F.Intrinsic.String.Concat(V.Local.woupload,"@#","",V.Local.woupload)
+
+			'Sort Value
+			F.Intrinsic.String.RPad(""," ",20,V.Local.temp)
+			F.Intrinsic.String.Concat(V.Local.woupload,"@#",V.Local.temp,V.Local.woupload)
+
+			'Add comments for field 82 Drawing
+			F.Intrinsic.Math.Add(V.Local.lseq,1,V.Local.lseq)
+			'New Line
+			F.Intrinsic.String.Concat(V.Local.woupload,V.Ambient.NewLine,V.Local.woupload)
+			
+			'Add Sequences
+			F.Intrinsic.String.Concat(V.Local.woupload,"L",V.Local.woupload)
+			'Sequence
+			F.Intrinsic.String.LPad(V.Local.lseq,"0",6,V.Local.temp)
+			F.Intrinsic.String.Concat(V.Local.woupload,"@#",V.Local.temp,V.Local.woupload)
+			
+			'Type L, M, O or C (L for labor, M for material, O for outside process, C for comments)
+			F.Intrinsic.String.Concat(V.Local.woupload,"@#","C",V.Local.woupload)
+
+			'Part (Only Fill on M steps)
+			F.Intrinsic.String.RPad(""," ",20,V.Local.temp)
+			F.Intrinsic.String.Concat(V.Local.woupload,"@#",V.Local.temp,V.Local.woupload)
+			'Workcenter (Only Fill on L steps)
+			F.Intrinsic.String.RPad(""," ",4,V.Local.temp)
+			F.Intrinsic.String.Concat(V.Local.woupload,"@#",V.Local.temp,V.Local.woupload)
+			'Part (Only Fill on O steps)
+			F.Intrinsic.String.RPad(""," ",20,V.Local.temp)
+			F.Intrinsic.String.Concat(V.Local.woupload,"@#",V.Local.temp,V.Local.woupload)
+			'Op code
+			F.Intrinsic.String.RPad(""," ",6,V.Local.temp)
+			F.Intrinsic.String.Concat(V.Local.woupload,"@#",V.Local.temp,V.Local.woupload)
+			'Description
+			F.Intrinsic.String.Concat("Drawing #: ",V.ODBC.conx!rstEDI.FieldValTrim!FIELD82,V.Local.temp)
+			F.Intrinsic.String.RPad(V.Local.temp," ",30,V.Local.temp)
+			F.Intrinsic.String.Concat(V.Local.woupload,"@#",V.Local.temp,V.Local.woupload)
+			F.Intrinsic.String.Asc(V.Local.sDim,V.Local.ltemp)
+			F.Intrinsic.Math.Add(V.Local.ltemp,1,V.Local.ltemp)
+			F.Intrinsic.String.ConcatChr("",V.Local.ltemp,V.Local.sDim)
+			'Unit of Measure
+			F.Intrinsic.String.RPad(""," ",2,V.Local.temp)
+			F.Intrinsic.String.Concat(V.Local.woupload,"@#",V.Local.temp,V.Local.woupload)
+			'Setup
+			F.Intrinsic.String.Concat(V.Local.woupload,"@#","",V.Local.woupload)
+
+			'Runtime/Qty to Make 1
+			F.Intrinsic.String.Concat(V.Local.woupload,"@#","",V.Local.woupload)
+			'Rate
+			F.Intrinsic.String.Concat(V.Local.woupload,"@#","",V.Local.woupload)
+
+			'Sort Value
+			F.Intrinsic.String.RPad(""," ",20,V.Local.temp)
+			F.Intrinsic.String.Concat(V.Local.woupload,"@#",V.Local.temp,V.Local.woupload)
+
+			'Make file and run order upload program
+			F.Intrinsic.String.Concat(V.Caller.FilesDir,"\","DIS",V.Caller.Terminal,V.Caller.CompanyCode,V.Local.filedir)
+			F.Intrinsic.File.String2File(V.Local.filedir,V.Local.woupload)
+
+			F.Intrinsic.String.Concat("DIS",V.Caller.Terminal,V.Caller.CompanyCode,V.Local.filename)
+
+			F.Intrinsic.String.Concat(V.Ambient.DblQuote,V.Caller.CompanyCode,V.Local.filename,V.Ambient.DblQuote,V.Local.woupload)
+			F.Intrinsic.Task.LaunchGSSSync("XSIGN00","-C",V.Local.woupload)
+			
+			F.Intrinsic.String.Concat(V.Ambient.QuadQuote,V.Caller.CompanyCode,V.Local.sWO,"   ","000000","B","000000",V.Passed.000024,V.Ambient.QuadQuote,V.Local.woupload)
+
+			F.Intrinsic.Task.LaunchGSSSync("JB0011CL","-C",V.Local.woupload)
+
+	'		F.Intrinsic.String.Concat("Select PROCESS_GRP from JOB_HEADER where JOB='",V.Local.sWO,"' ",V.Local.sSQL)
+	'		F.ODBC.Connection!conx.OpenRecordsetRW("rstWO",V.Local.sSQL)
+	'		F.ODBC.conx!rstWO.Set!PROCESS_GRP("D")
+	'		F.ODBC.conx!rstWO.Update
+	'		F.ODBC.conx!rstWO.Close
+			F.Intrinsic.String.Concat(V.local.wolog,"WO ",V.Local.sWO," uploaded.",V.Ambient.NewLine,V.Local.wolog)
+		F.Intrinsic.Control.EndIf
+		F.ODBC.conx!rstEDI.Close
+
+	F.ODBC.conx!rstOrder.MoveNext
+F.Intrinsic.Control.Loop
+F.ODBC.conx!rstOrder.Close
+F.ODBC.conx!rstOrderHead.Close
+F.Intrinsic.UI.Msgbox(V.Local.wolog,"Uploaded")
+
+
+Program.Sub.wo_upload.End
+
+
